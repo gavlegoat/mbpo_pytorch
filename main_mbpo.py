@@ -103,11 +103,15 @@ def readParser():
     return parser.parse_args()
 
 
-def train(args, env_sampler, predict_env, agent, env_pool, model_pool):
+def train(args, env_sampler, predict_env, agent, env_pool, model_pool,
+          data_callback=None, policy_callback=None):
     total_step = 0
     reward_sum = 0
     rollout_length = 1
-    exploration_before_start(args, env_sampler, env_pool, agent)
+    if data_callback is None:
+        exploration_before_start(args, env_sampler, env_pool, agent)
+    else:
+        data_callback(env_pool, required=True)
 
     for epoch_step in range(args.num_epoch):
         start_step = total_step
@@ -128,11 +132,16 @@ def train(args, env_sampler, predict_env, agent, env_pool, model_pool):
 
                 rollout_model(args, predict_env, agent, model_pool, env_pool, rollout_length)
 
-            cur_state, action, next_state, reward, done, info = env_sampler.sample(agent)
-            env_pool.push(cur_state, action, reward, next_state, done)
+            if data_callback is None:
+                cur_state, action, next_state, reward, done, info = env_sampler.sample(agent)
+                env_pool.push(cur_state, action, reward, next_state, done)
+            else:
+                data_callback(env_pool)
 
             if len(env_pool) > args.min_pool_size:
                 train_policy_steps += train_policy_repeats(args, total_step, train_policy_steps, cur_step, env_pool, model_pool, agent)
+                if policy_callback is not None:
+                    policy_callback(agent)
 
             total_step += 1
 
@@ -264,7 +273,7 @@ class SingleEnvWrapper(gym.Wrapper):
         return obs
 
 
-def main(args=None):
+def main(args=None, data_callback=None, policy_callback=None):
     if args is None:
         args = readParser()
 
@@ -303,7 +312,8 @@ def main(args=None):
     # Sampler of environment
     env_sampler = EnvSampler(env, max_path_length=args.max_path_length)
 
-    train(args, env_sampler, predict_env, agent, env_pool, model_pool)
+    train(args, env_sampler, predict_env, agent, env_pool, model_pool,
+          data_callback=data_callback, policy_callback=policy_callback)
 
 
 if __name__ == '__main__':
