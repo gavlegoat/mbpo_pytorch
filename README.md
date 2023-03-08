@@ -1,3 +1,20 @@
+## Modifications
+This fork has been modified from the original at
+https://github.com/Xingyu-Lin/mbpo_pytorch in order to support asynchronous
+data collection. The `main` function now accepts two callbacks
+
+- `data_callback(mem: ReplayMemory, required: bool = False)` adds new data to
+  `mem`. If `required` is true then `data_callback` should block until data is
+  available. Otherwise `data_callback` may return without modifying `mem`. The
+  algorithm is modified to call `data_callback` instead of unrolling
+  trajectories in the real environment.
+- `policy_callback(agent: SAC)` is called whenever the policy is updated. It
+  can be used to update the policy being used by the asynchronous data
+  collection agent. Note that in general `policy_callback` may be called pretty
+  often. If it turns out copying agent parameters is too slow, it may be a
+  good idea to include a timer in `policy_callback` which can restrict the
+  frequency of policy updates.
+
 ## Overview
 This is a re-implementation of the model-based RL algorithm MBPO in pytorch as described in the following paper: [When to Trust Your Model: Model-Based Policy Optimization](https://arxiv.org/abs/1906.08253).
 
